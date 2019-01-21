@@ -6,12 +6,12 @@ functions to run and train autopilots using pytorch
 
 """
 
-import donkey_torch
 
 import torch.nn as nn
-import torchex.nn as exnn
+#import torchex.nn as exnn
 
 from .torch_utils import load
+
 
 class TorchPilot:
     def load(self, model_path):
@@ -106,5 +106,5 @@ class Linear(nn.Module):
     def loss(self, x, y):
         return None
 
-`    def predict(self, x):
+    def predict(self, x):
         return None
