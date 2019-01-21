@@ -35,6 +35,13 @@ After building a Donkey2 you can turn on your car and go to http://localhost:888
 ### Modify your cars behavior.
 The donkey car is controlled by running a sequence of events
 
+### How to train a PyTorch model.
+
+```
+$ donkey createcar --template torchdonkey torch_donkey
+$ python manage.py train --tub=data/log --model=models/mypilot
+```
+
 ```python
 #Define a vehicle to take and record pictures 10 times per second.
 
