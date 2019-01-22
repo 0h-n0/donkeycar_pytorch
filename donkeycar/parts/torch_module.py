@@ -29,27 +29,36 @@ class TorchPilot:
         total_loss = 0
         for x, y in dataloader:
             optimizer.zero_grad()
+            if self.use_gpu:
+                x = x.to('cuda')
+                y = y.to('cuda')                
             output = self.model(x)
             angle_loss, throttle_loss = self.model.loss(output, y)
             loss = angle_loss + throttle_loss
             loss.backward()
             optimizer.step()
-            print("loss = {}, angle = {}, throttle_loss = {}".format(loss.item().data,
-                                                                     loss.item().data,
-            )
+            print("epoch {:03d}: total_loss = {:7.5f}, angle = {:7.5f}, throttle_loss = {:7.5f}".format(
+                epoch, loss.item(), angle_loss.item(), throttle_loss.item()))
             total_loss += loss
         total_loss /= len(dataloader)
         return total_loss
             
-    def train(self, train_gen, val_gen, 
+    def train(self, train_gen, val_gen, use_gpu,
               saved_model_path, epochs=100, steps=100, train_split=0.8,
               verbose=1, min_delta=.0005, patience=5, use_early_stop=True):
         """
         train_gen: generator that yields an array of images an array of
-
         """
+        self.use_gpu = use_gpu
         optimizer = self.get_optimizer()
 
+        if self.use_gpu:
+            if torch.cuda.is_available():
+                self.model.to('cuda')
+            else:
+                print('CPU Traning')
+                self.use_gpu = False
+                
         best_loss = 1000
         
         for epoch in range(epochs):
@@ -63,10 +72,6 @@ class TorchPilot:
                 best_loss = val_loss.item()
                 print('best_loss', best_loss)
                 self.model.save(saved_model_path)
-
-    def save(saved_model_path):
-        torch.save(the_model.state_dict(), PATH)
-        
 
 
 class TorchLinear(TorchPilot):
@@ -118,6 +123,7 @@ class Linear(nn.Module):
         self.size_average_mse = nn.MSELoss(reduction='mean')
 
     def save(self, saved_model_path):
+        self = self.to('cpu')
         torch.save(self.state_dict(), saved_model_path)
 
     @classmethod

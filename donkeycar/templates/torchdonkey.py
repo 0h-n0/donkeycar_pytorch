@@ -156,6 +156,7 @@ def train(cfg, tub_names, new_model_path, base_model_path=None):
 
     tl.train(train_gen,
              val_gen,
+             use_gpu=cfg.USE_GPU,             
              saved_model_path=new_model_path,
              steps=steps_per_epoch,
              train_split=cfg.TRAIN_TEST_SPLIT)
