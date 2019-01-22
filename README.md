@@ -34,17 +34,10 @@ After building a Donkey2 you can turn on your car and go to http://localhost:888
 
 ### How to train a PyTorch model.
 
-```
+```shell
 $ donkey createcar --template torchdonkey torch_donkey
+$ cd torch_donkey
 $ python manage.py train --tub=data/log --model=models/mypilot
-```
-
-#### Caution!!
-
-When training a pytorch model, batch size have to be set 1. You can edit `your_car/config.py` to change batch size.
-
-```python
-BATCH_SIZE=1
 ```
 
 ### Modify your cars behavior.
