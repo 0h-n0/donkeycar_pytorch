@@ -661,3 +661,83 @@ class TubGroup(Tub):
 
     def get_num_records(self):
         return len(self.df)
+
+
+class TorchTubGroup(Tub):
+    def __init__(self, tub_paths_arg):
+        tub_paths = util.files.expand_path_arg(tub_paths_arg)
+        logger.info('TubGroup:tubpaths: {}'.format(tub_paths))
+        self.tubs = [Tub(path) for path in tub_paths]
+        self.input_types = {}
+
+        record_count = 0
+        for t in self.tubs:
+            t.update_df()
+            record_count += len(t.df)
+            self.input_types.update(dict(zip(t.inputs, t.types)))
+
+        logger.info('joining the tubs {} records together. This could take {} minutes.'.format(record_count,
+                                                                                         int(record_count / 300000)))
+
+        self.meta = {'inputs': list(self.input_types.keys()),
+                     'types': list(self.input_types.values())}
+
+        self.df = pd.concat([t.df for t in self.tubs], axis=0, join='inner')
+
+    @property
+    def inputs(self):
+        return list(self.meta['inputs'])
+
+    @property
+    def types(self):
+        return list(self.meta['types'])
+
+    def get_num_tubs(self):
+        return len(self.tubs)
+
+    def get_num_records(self):
+        return len(self.df)
+    
+    def get_train_val_gen(self, X_keys, Y_keys, batch_size=128, train_frac=.8,
+                          train_record_transform=None, val_record_transform=None):
+        import torch
+        if self.df is None:
+            self.update_df()
+
+        train_df = self.df.sample(frac=train_frac, random_state=200)
+        val_df = self.df.drop(train_df.index)
+
+        train_gen = torch.utils.data.DataLoader(Dataset(train_df, X_keys, Y_keys), batch_size)
+        val_gen = torch.utils.data.DataLoader(Dataset(val_df, X_keys, Y_keys), batch_size)
+        return train_gen, val_gen
+
+            
+
+class Dataset(object):
+    def __init__(self, df_data, X_keys, Y_keys):
+        self.data = df_data
+        self.X_keys = X_keys
+        self.Y_keys = Y_keys        
+
+    def __getitem__(self, idx):
+        import torch
+        try:
+            img = Image.open((self.data[self.X_keys].iloc[idx, 0]))
+            val = np.array(img, dtype=np.float32)
+            steering = self.data[self.Y_keys].iloc[idx, 0].astype(np.float32)
+            throttle = self.data[self.Y_keys].iloc[idx, 1].astype(np.float32)
+        except IndexError as e:
+            print(idx)
+            print(self.data.size)            
+            raise e
+
+        y = [steering, throttle]
+        y = torch.FloatTensor(y)
+
+        val = torch.FloatTensor(val).permute(2, 0, 1)
+        # move channel dimmension from last to first
+        return val, y
+
+    def __len__(self):
+        return self.data.shape[0]
+                    

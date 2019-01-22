@@ -6,11 +6,12 @@ functions to run and train autopilots using pytorch
 
 """
 
-
+import torch
+import torch.utils.data
 import torch.nn as nn
-#import torchex.nn as exnn
+import torchex.nn as exnn
 
-from .torch_utils import load
+from .torch_utils import load_model
 
 
 class TorchPilot:
@@ -20,32 +21,52 @@ class TorchPilot:
     def shutdown(self):
         pass
 
-    def train_one_epoch(self, epoch, data_gen, save_model_path):
-        for xdata in train_gen:
-            print(xdata)
-    
-    def train(self, train_gen, val_gen,
+    def get_optimizer(self, lr=0.001, momentum=0.9, optim_type='SGD'):
+        import torch.optim as optim
+        return getattr(optim, optim_type)(self.model.parameters(), lr, momentum)
+
+    def train_one_epoch(self, epoch, dataloader, optimizer, saved_model_path=None):
+        total_loss = 0
+        for x, y in dataloader:
+            optimizer.zero_grad()
+            output = self.model(x)
+            angle_loss, throttle_loss = self.model.loss(output, y)
+            loss = angle_loss + throttle_loss
+            loss.backward()
+            optimizer.step()
+            print("loss = {}, angle = {}, throttle_loss = {}".format(loss.item().data,
+                                                                     loss.item().data,
+            )
+            total_loss += loss
+        total_loss /= len(dataloader)
+        return total_loss
+            
+    def train(self, train_gen, val_gen, 
               saved_model_path, epochs=100, steps=100, train_split=0.8,
               verbose=1, min_delta=.0005, patience=5, use_early_stop=True):
         """
         train_gen: generator that yields an array of images an array of
 
         """
+        optimizer = self.get_optimizer()
 
+        best_loss = 1000
+        
         for epoch in range(epochs):
-            loss = self.train_one_epoch(epoch+1, train_gen, save_model_path)
-            loss = self.train_one_epoch(epoch+1, val_gen, save_model_path)
-            
+            self.model.train()
+            loss = self.train_one_epoch(epoch+1, train_gen, optimizer, saved_model_path)
+            print('traning loss', loss.item())
+            self.model.eval()
+            val_loss = self.train_one_epoch(epoch+1, val_gen, optimizer)
+            print('valid loss', val_loss.item())                        
+            if best_loss > val_loss.item():
+                best_loss = val_loss.item()
+                print('best_loss', best_loss)
+                self.model.save(saved_model_path)
 
-        hist = self.model.fit_generator(
-            train_gen,
-            steps_per_epoch=steps,
-            epochs=epochs,
-            verbose=1,
-            validation_data=val_gen,
-            callbacks=callbacks_list,
-            validation_steps=steps * (1.0 - train_split) / train_split)
-        return hist
+    def save(saved_model_path):
+        torch.save(the_model.state_dict(), PATH)
+        
 
 
 class TorchLinear(TorchPilot):
@@ -58,6 +79,7 @@ class TorchLinear(TorchPilot):
         else:
             self.model = Linear()
 
+                                                     
     def run(self, img_arr):
         img_arr = img_arr.reshape((1,) + img_arr.shape)
         outputs = self.model.predict(img_arr)
@@ -66,21 +88,20 @@ class TorchLinear(TorchPilot):
         throttle = outputs[1]
         return steering[0][0], throttle[0][0]
 
-
     
 class Linear(nn.Module):
     def __init__(self):
         super(Linear, self).__init__()
         self.conv_block = nn.Sequential(
-            nn.Conv2D(3, 24, (5, 5), (2, 2)),
+            nn.Conv2d(3, 24, (5, 5), (2, 2)),
             nn.ReLU(),
-            nn.Conv2D(24, 32, (5, 5), (2, 2)),
+            nn.Conv2d(24, 32, (5, 5), (2, 2)),
             nn.ReLU(),
-            nn.Conv2D(32, 64, (5, 5), (2, 2)),
+            nn.Conv2d(32, 64, (5, 5), (2, 2)),
             nn.ReLU(),
-            nn.Conv2D(64, 64, (3, 3), (2, 2)),
+            nn.Conv2d(64, 64, (3, 3), (2, 2)),
             nn.ReLU(),
-            nn.Conv2D(64, 64, (3, 3), (1, 1)),
+            nn.Conv2d(64, 64, (3, 3), (1, 1)),
             nn.ReLU())
 
         self.linear = nn.Sequential(
@@ -92,19 +113,32 @@ class Linear(nn.Module):
             )
 
         self.angle_net = exnn.Linear(1)
-        self.throttle_net = exnn.Linear(1)        
+        self.throttle_net = exnn.Linear(1)
+
+        self.size_average_mse = nn.MSELoss(reduction='mean')
+
+    def save(self, saved_model_path):
+        torch.save(self.state_dict(), saved_model_path)
+
+    @classmethod
+    def load(cls, saved_model_path, *args, **kwargs):
+        model = model.to('cpu')
+        model = cls(*args, **kwargs)
+        model.load_state_dict(torch.load(saved_model_path))
+        return model
         
     def forward(self, x):
         x = self.conv_block(x)
         x = self.linear(x)
-        
         angle = self.angle_net(x)
         throttle = self.throttle_net(x)
-        
         return angle, throttle
 
-    def loss(self, x, y):
-        return None
+    def loss(self, x, y, angle_weight=0.5):
+        angle_loss = self.size_average_mse(x[0], y[0])
+        throttle_loss = self.size_average_mse(x[1], y[1])
+        loss = angle_weight * angle_loss + throttle_loss * ( 1 - angle_loss)
+        return angle_loss, throttle_loss
 
     def predict(self, x):
-        return None
+        return self(x)

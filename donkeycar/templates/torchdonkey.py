@@ -20,7 +20,7 @@ from donkeycar.parts.camera import PiCamera
 from donkeycar.parts.transform import Lambda
 from donkeycar.parts.torch_module import TorchLinear
 from donkeycar.parts.actuator import PCA9685, PWMSteering, PWMThrottle
-from donkeycar.parts.datastore import TubGroup, TubWriter
+from donkeycar.parts.datastore import TorchTubGroup, TubWriter
 from donkeycar.parts.web_controller import LocalWebController
 from donkeycar.parts.clock import Timestamp
 
@@ -142,7 +142,7 @@ def train(cfg, tub_names, new_model_path, base_model_path=None):
     print('tub_names', tub_names)
     if not tub_names:
         tub_names = os.path.join(cfg.DATA_PATH, '*')
-    tubgroup = TubGroup(tub_names)
+    tubgroup = TorchTubGroup(tub_names)
     train_gen, val_gen = tubgroup.get_train_val_gen(X_keys, y_keys,
                                                     batch_size=cfg.BATCH_SIZE,
                                                     train_frac=cfg.TRAIN_TEST_SPLIT)

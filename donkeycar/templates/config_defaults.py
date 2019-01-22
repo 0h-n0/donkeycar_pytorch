@@ -40,9 +40,13 @@ THROTTLE_STOPPED_PWM = 360
 THROTTLE_REVERSE_PWM = 310
 
 #TRAINING
-BATCH_SIZE = 128
+BATCH_SIZE = 1  # for pytorch model
 TRAIN_TEST_SPLIT = 0.8
 
+# Pytorch Setups
+
+TORCH_BATCH_SIZE = 128
+TORCH_NUM_WORKERS = 5
 
 TUB_PATH = os.path.join(CAR_PATH, 'tub') # if using a single tub
 

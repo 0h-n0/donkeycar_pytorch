@@ -32,15 +32,23 @@ community contributions.
 ### Get driving.
 After building a Donkey2 you can turn on your car and go to http://localhost:8887 to drive.
 
-### Modify your cars behavior.
-The donkey car is controlled by running a sequence of events
-
 ### How to train a PyTorch model.
 
 ```
 $ donkey createcar --template torchdonkey torch_donkey
 $ python manage.py train --tub=data/log --model=models/mypilot
 ```
+
+#### Caution!!
+
+When training a pytorch model, batch size have to be set 1. You can edit `your_car/config.py` to change batch size.
+
+```python
+BATCH_SIZE=1
+```
+
+### Modify your cars behavior.
+The donkey car is controlled by running a sequence of events
 
 ```python
 #Define a vehicle to take and record pictures 10 times per second.
