@@ -257,7 +257,7 @@ class Sim(BaseCommand):
         """
         import socketio
         from donkeycar.parts.simulation import SteeringServer
-        from donkeycar.parts.keras import KerasCategorical, KerasLinear
+        from donkeycar.parts.torch_module import TorchLinear
         ## need to modifiy for pytorch version
 
         args, parser = self.parse_args(args)
@@ -268,13 +268,7 @@ class Sim(BaseCommand):
             return
 
         #TODO: this logic should be in a pilot or modle handler part.
-        if args.type == "categorical":
-            kl = KerasCategorical()
-        elif args.type == "linear":
-            kl = KerasLinear(num_outputs=2)
-        else:
-            print("didn't recognice type:", args.type)
-            return
+        kl = TorchLinear(num_outputs=2)
 
         #can provide an optional image filter part
         img_stack = None

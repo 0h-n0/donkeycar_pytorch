@@ -97,7 +97,6 @@ class SteeringServer(object):
 
             # forward pass - inference
             steering, throttle = self.kpart.run(image_array)
-
             # filter throttle here, as our NN doesn't always do a greate job
             throttle = self.throttle_control(last_steering, last_throttle, speed, throttle)
 

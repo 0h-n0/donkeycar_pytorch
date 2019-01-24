@@ -23,7 +23,7 @@ class TorchPilot:
     def shutdown(self):
         pass
 
-    def get_optimizer(self, lr=0.001, momentum=0.9, optim_type='Adam'):
+    def get_optimizer(self, lr=0.001, momentum=0.9, optim_type='SGD'):
         import torch.optim as optim
         try:
             return getattr(optim, optim_type)(self.model.parameters(), lr, momentum)
@@ -91,14 +91,16 @@ class TorchLinear(TorchPilot):
             self.model = Linear()
         else:
             self.model = Linear()
+        self.model = self.model.eval()
                                                      
     def run(self, img_arr):
         img_arr = img_arr.reshape((1,) + img_arr.shape)
         outputs = self.model.predict(img_arr)
         # print(len(outputs), outputs)
+        print(outputs)
         steering = outputs[0]
         throttle = outputs[1]
-        return steering[0][0], throttle[0][0]
+        return float(steering[0][0].data), float(throttle[0][0].data)
 
     
 class Linear(nn.Module):
@@ -111,21 +113,22 @@ class Linear(nn.Module):
             nn.ReLU(),
             nn.Conv2d(32, 64, (5, 5), (2, 2)),
             nn.ReLU(),
-            nn.Conv2d(64, 64, (3, 3), (2, 2)),
+            nn.Conv2d(64, 128, (5, 5), (2, 2)),
             nn.ReLU(),
-            nn.Conv2d(64, 64, (3, 3), (1, 1)),
+            nn.Conv2d(128, 256, (3, 3), (1, 1)),
             nn.ReLU())
 
         self.linear = nn.Sequential(
             exnn.Flatten(),
-            exnn.Linear(100),
+            nn.Linear(2560, 100),
+            nn.ReLU(),            
             nn.Dropout(0.1),
-            exnn.Linear(50),
+            nn.Linear(100, 50),
             nn.Dropout(0.1),
             )
 
-        self.angle_net = exnn.Linear(1)
-        self.throttle_net = exnn.Linear(1)
+        self.angle_net = nn.Linear(50, 1)
+        self.throttle_net = nn.Linear(50, 1)
 
         self.size_average_mse = nn.MSELoss(reduction='mean')
 
@@ -157,3 +160,5 @@ class Linear(nn.Module):
         x = torch.FloatTensor(x).permute(0, 3, 1, 2)
         y = self(x)
         return y
+
+    
