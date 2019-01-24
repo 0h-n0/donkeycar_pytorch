@@ -1,4 +1,4 @@
-""""
+"""
 
 pytorch.py
 
@@ -16,7 +16,9 @@ from .torch_utils import load_model
 
 class TorchPilot:
     def load(self, model_path):
-        self.model = load_model(model_path)
+        _model = load_model(Linear(), model_path)        
+        self.model = TorchLinear(_model)
+        self.model = _model
 
     def shutdown(self):
         pass
@@ -86,7 +88,6 @@ class TorchLinear(TorchPilot):
             self.model = Linear()
         else:
             self.model = Linear()
-
                                                      
     def run(self, img_arr):
         img_arr = img_arr.reshape((1,) + img_arr.shape)
@@ -150,4 +151,7 @@ class Linear(nn.Module):
         return angle_loss, throttle_loss
 
     def predict(self, x):
-        return self(x)
+        x = torch.FloatTensor(x).permute(0, 3, 1, 2)
+        y = self(x)
+        print(y)
+        return y
