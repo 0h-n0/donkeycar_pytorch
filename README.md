@@ -52,6 +52,14 @@ $ nohup python3 setup.py build &
 $ python setup.py install
 ```
 
+### set up your environmnet
+
+```
+$ sudo apt-get install -y virtualenv build-essential python3-dev gfortran libhdf5-dev
+$ cd donkeycar_pytorch
+$ python setup.py install 
+```
+
 ### Get driving.
 After building a Donkey2 you can turn on your car and go to http://localhost:8887 to drive.
 
