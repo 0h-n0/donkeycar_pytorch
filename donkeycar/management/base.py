@@ -258,6 +258,7 @@ class Sim(BaseCommand):
         import socketio
         from donkeycar.parts.simulation import SteeringServer
         from donkeycar.parts.keras import KerasCategorical, KerasLinear
+        ## need to modifiy for pytorch version
 
         args, parser = self.parse_args(args)
 
