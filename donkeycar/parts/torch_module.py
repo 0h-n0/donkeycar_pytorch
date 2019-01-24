@@ -115,14 +115,14 @@ class Linear(nn.Module):
 
         self.linear = nn.Sequential(
             exnn.Flatten(),
-            nn.Linear(1152, 100),
+            exnn.Linear(100),
             nn.Dropout(0.1),
-            nn.Linear(100, 50),
+            exnn.Linear(50),
             nn.Dropout(0.1),
             )
 
-        self.angle_net = nn.Linear(50, 1)
-        self.throttle_net = nn.Linear(50, 1)
+        self.angle_net = exnn.Linear(1)
+        self.throttle_net = exnn.Linear(1)
 
         self.size_average_mse = nn.MSELoss(reduction='mean')
 
@@ -153,5 +153,4 @@ class Linear(nn.Module):
     def predict(self, x):
         x = torch.FloatTensor(x).permute(0, 3, 1, 2)
         y = self(x)
-        print(y)
         return y
