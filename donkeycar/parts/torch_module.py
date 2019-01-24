@@ -23,9 +23,12 @@ class TorchPilot:
     def shutdown(self):
         pass
 
-    def get_optimizer(self, lr=0.001, momentum=0.9, optim_type='SGD'):
+    def get_optimizer(self, lr=0.001, momentum=0.9, optim_type='Adam'):
         import torch.optim as optim
-        return getattr(optim, optim_type)(self.model.parameters(), lr, momentum)
+        try:
+            return getattr(optim, optim_type)(self.model.parameters(), lr, momentum)
+        except:
+            return getattr(optim, optim_type)(self.model.parameters(), lr)
 
     def train_one_epoch(self, epoch, dataloader, optimizer, saved_model_path=None):
         total_loss = 0
