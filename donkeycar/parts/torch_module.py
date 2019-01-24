@@ -55,6 +55,7 @@ class TorchPilot:
         if self.use_gpu:
             if torch.cuda.is_available():
                 self.model.to('cuda')
+                torch.backends.cudnn.benchmark = True
             else:
                 print('CPU Traning')
                 self.use_gpu = False
@@ -62,6 +63,8 @@ class TorchPilot:
         best_loss = 1000
         
         for epoch in range(epochs):
+            if self.use_gpu:
+                self.model.to('cuda')
             self.model.train()
             loss = self.train_one_epoch(epoch+1, train_gen, optimizer, saved_model_path)
             print('traning loss', loss.item())
@@ -111,14 +114,14 @@ class Linear(nn.Module):
 
         self.linear = nn.Sequential(
             exnn.Flatten(),
-            exnn.Linear(100),
+            nn.Linear(1152, 100),
             nn.Dropout(0.1),
-            exnn.Linear(50),
+            nn.Linear(100, 50),
             nn.Dropout(0.1),
             )
 
-        self.angle_net = exnn.Linear(1)
-        self.throttle_net = exnn.Linear(1)
+        self.angle_net = nn.Linear(50, 1)
+        self.throttle_net = nn.Linear(50, 1)
 
         self.size_average_mse = nn.MSELoss(reduction='mean')
 
