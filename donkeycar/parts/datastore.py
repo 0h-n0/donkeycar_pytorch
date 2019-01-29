@@ -699,20 +699,26 @@ class TorchTubGroup(Tub):
         return len(self.df)
     
     def get_train_val_gen(self, X_keys, Y_keys, batch_size=128, train_frac=.8,
-                          train_record_transform=None, val_record_transform=None):
+                          train_record_transform=None, val_record_transform=None,
+                          sequential=True):
         import torch
         if self.df is None:
             self.update_df()
 
-        train_df = self.df.sample(frac=train_frac, random_state=200)
-        val_df = self.df.drop(train_df.index)
+        if sequential:
+            from torch.utils.data import SequentialSampler, BatchSampler
+            torch.utils.data.SequentialSampler(Dataset(train_df, X_keys, Y_keys))
 
-        train_gen = torch.utils.data.DataLoader(Dataset(train_df, X_keys, Y_keys), batch_size)
-        val_gen = torch.utils.data.DataLoader(Dataset(val_df, X_keys, Y_keys), batch_size)
+        else:
+            # random sampling
+            train_df = self.df.sample(frac=train_frac, random_state=200)
+            val_df = self.df.drop(train_df.index)
+            train_gen = torch.utils.data.DataLoader(Dataset(train_df, X_keys, Y_keys), batch_size)
+            val_gen = torch.utils.data.DataLoader(Dataset(val_df, X_keys, Y_keys), batch_size)
+
         return train_gen, val_gen
 
             
-
 class Dataset(object):
     def __init__(self, df_data, X_keys, Y_keys):
         self.data = df_data

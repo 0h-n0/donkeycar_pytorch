@@ -5,7 +5,7 @@ pytorch.py
 functions to run and train autopilots using pytorch
 
 """
-
+from tqdm import tqdm
 import torch
 import torch.utils.data
 import torch.nn as nn
@@ -32,7 +32,11 @@ class TorchPilot:
 
     def train_one_epoch(self, epoch, dataloader, optimizer, saved_model_path=None):
         total_loss = 0
-        for x, y in dataloader:
+        ang_loss = 0
+        thr_loss = 0
+        pbar = tqdm(total=len(dataloader))
+        
+        for i, (x, y) in enumerate(dataloader):
             optimizer.zero_grad()
             if self.use_gpu:
                 x = x.to('cuda')
@@ -42,10 +46,15 @@ class TorchPilot:
             loss = angle_loss + throttle_loss
             loss.backward()
             optimizer.step()
-            print("epoch {:03d}: total_loss = {:7.5f}, angle = {:7.5f}, throttle_loss = {:7.5f}".format(
-                epoch, loss.item(), angle_loss.item(), throttle_loss.item()))
-            total_loss += loss
+            total_loss += loss.item()
+            ang_loss += angle_loss.item()
+            thr_loss += throttle_loss.item()
+            
+            pbar.set_description("epoch {:03d}: tot {:6.4f}, ang = {:6.4f}, thrtle = {:6.4f}".format(
+                epoch, total_loss / (i+1), ang_loss / (i+1), thr_loss / (i+1)))
+            pbar.update(1)
         total_loss /= len(dataloader)
+
         return total_loss
             
     def train(self, train_gen, val_gen, use_gpu,
@@ -65,19 +74,19 @@ class TorchPilot:
                 print('CPU Traning')
                 self.use_gpu = False
                 
-        best_loss = 1000
+        best_loss = 1e10
         
         for epoch in range(epochs):
             if self.use_gpu:
                 self.model.to('cuda')
             self.model.train()
             loss = self.train_one_epoch(epoch+1, train_gen, optimizer, saved_model_path)
-            print('traning loss', loss.item())
+            print('traning loss', loss)
             self.model.eval()
             val_loss = self.train_one_epoch(epoch+1, val_gen, optimizer)
-            print('valid loss', val_loss.item())                        
-            if best_loss > val_loss.item():
-                best_loss = val_loss.item()
+            print('valid loss', val_loss)                        
+            if best_loss > val_loss:
+                best_loss = val_loss
                 print('best_loss', best_loss)
                 self.model.save(saved_model_path)
 
@@ -106,6 +115,7 @@ class TorchLinear(TorchPilot):
 class Linear(nn.Module):
     def __init__(self):
         super(Linear, self).__init__()
+
         self.conv_block = nn.Sequential(
             nn.Conv2d(3, 24, (5, 5), (2, 2)),
             nn.ReLU(),
@@ -113,24 +123,22 @@ class Linear(nn.Module):
             nn.ReLU(),
             nn.Conv2d(32, 64, (5, 5), (2, 2)),
             nn.ReLU(),
-            nn.Conv2d(64, 128, (5, 5), (2, 2)),
+            nn.Conv2d(64, 64, (5, 5), (2, 2)),
             nn.ReLU(),
-            nn.Conv2d(128, 256, (3, 3), (1, 1)),
+            nn.Conv2d(64, 64, (3, 3), (1, 1)),
             nn.ReLU())
-
         self.linear = nn.Sequential(
             exnn.Flatten(),
-            nn.Linear(2560, 100),
-            nn.ReLU(),            
+            exnn.Linear(100),
             nn.Dropout(0.1),
-            nn.Linear(100, 50),
+            exnn.Linear(50),
             nn.Dropout(0.1),
             )
 
-        self.angle_net = nn.Linear(50, 1)
-        self.throttle_net = nn.Linear(50, 1)
+        self.angle_net = exnn.Linear(1)
+        self.throttle_net = exnn.Linear(1)
 
-        self.size_average_mse = nn.MSELoss(reduction='mean')
+        self.mse = nn.MSELoss()
 
     def save(self, saved_model_path):
         self = self.to('cpu')
@@ -151,8 +159,8 @@ class Linear(nn.Module):
         return angle, throttle
 
     def loss(self, x, y, angle_weight=0.5):
-        angle_loss = self.size_average_mse(x[0], y[0])
-        throttle_loss = self.size_average_mse(x[1], y[1])
+        angle_loss = self.mse(x[0], y[0])
+        throttle_loss = self.mse(x[1], y[1])
         loss = angle_weight * angle_loss + throttle_loss * ( 1 - angle_loss)
         return angle_loss, throttle_loss
 
