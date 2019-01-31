@@ -19,7 +19,7 @@ CONF_SWAPSIZE=2048
 
 
 ```
-$ sudo systemctl restart dphys-suwapfile
+$ sudo systemctl restart dphys-swapfile
 ```
 
 ### 
