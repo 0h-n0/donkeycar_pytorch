@@ -16,14 +16,16 @@ from .torch_utils import load_model
 
 class TorchPilot:
     def load(self, model_path):
-        _model = load_model(Linear(), model_path)        
-        self.model = TorchLinear(_model)
+        import torch
+        _model = Linear()
+        _model.load_state_dict(torch.load(model_path))
+        _model.eval()
         self.model = _model
 
     def shutdown(self):
         pass
 
-    def get_optimizer(self, lr=0.001, momentum=0.9, optim_type='SGD'):
+    def get_optimizer(self, lr=0.001, momentum=0.9, optim_type='Adam'):
         import torch.optim as optim
         try:
             return getattr(optim, optim_type)(self.model.parameters(), lr, momentum)
@@ -42,8 +44,7 @@ class TorchPilot:
                 x = x.to('cuda')
                 y = y.to('cuda')                
             output = self.model(x)
-            angle_loss, throttle_loss = self.model.loss(output, y)
-            loss = angle_loss + throttle_loss
+            loss, angle_loss, throttle_loss = self.model.loss(output, y)
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
@@ -73,7 +74,7 @@ class TorchPilot:
             else:
                 print('CPU Traning')
                 self.use_gpu = False
-                
+            
         best_loss = 1e10
         
         for epoch in range(epochs):
@@ -81,13 +82,13 @@ class TorchPilot:
                 self.model.to('cuda')
             self.model.train()
             loss = self.train_one_epoch(epoch+1, train_gen, optimizer, saved_model_path)
-            print('traning loss', loss)
+            print('traning loss', loss, end='')
             self.model.eval()
             val_loss = self.train_one_epoch(epoch+1, val_gen, optimizer)
-            print('valid loss', val_loss)                        
+            print('valid loss', val_loss, end='')                        
             if best_loss > val_loss:
                 best_loss = val_loss
-                print('best_loss', best_loss)
+                print('best_loss', best_loss, end='')
                 self.model.save(saved_model_path)
 
 
@@ -106,10 +107,9 @@ class TorchLinear(TorchPilot):
         img_arr = img_arr.reshape((1,) + img_arr.shape)
         outputs = self.model.predict(img_arr)
         # print(len(outputs), outputs)
-        print(outputs)
-        steering = outputs[0]
-        throttle = outputs[1]
-        return float(steering[0][0].data), float(throttle[0][0].data)
+        steering = outputs[0][0].data
+        throttle = outputs[0][1].data
+        return float(steering), float(throttle)
 
     
 class Linear(nn.Module):
@@ -117,28 +117,26 @@ class Linear(nn.Module):
         super(Linear, self).__init__()
 
         self.conv_block = nn.Sequential(
-            nn.Conv2d(3, 24, (5, 5), (2, 2)),
+            exnn.Conv2d(24, 3, stride=3, padding=1),
+            exnn.Conv2d(24, 3, stride=3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(24, 32, (5, 5), (2, 2)),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, (5, 5), (2, 2)),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, (5, 5), (2, 2)),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, (3, 3), (1, 1)),
+            exnn.Conv2d(64, 3, stride=3, padding=1),
+            exnn.Conv2d(64, 3, stride=3, padding=1),
             nn.ReLU())
+        
         self.linear = nn.Sequential(
             exnn.Flatten(),
-            exnn.Linear(100),
+            exnn.Linear(500),
+            nn.ReLU(),            
             nn.Dropout(0.1),
-            exnn.Linear(50),
-            nn.Dropout(0.1),
+            exnn.Linear(50),            
             )
 
         self.angle_net = exnn.Linear(1)
         self.throttle_net = exnn.Linear(1)
 
-        self.mse = nn.MSELoss()
+        self.mse1 = nn.MSELoss()
+        self.mse2 = nn.MSELoss()
 
     def save(self, saved_model_path):
         self = self.to('cpu')
@@ -156,16 +154,16 @@ class Linear(nn.Module):
         x = self.linear(x)
         angle = self.angle_net(x)
         throttle = self.throttle_net(x)
-        return angle, throttle
+        return torch.cat((angle, throttle), dim=1)
 
     def loss(self, x, y, angle_weight=0.5):
-        angle_loss = self.mse(x[0], y[0])
-        throttle_loss = self.mse(x[1], y[1])
-        loss = angle_weight * angle_loss + throttle_loss * ( 1 - angle_loss)
-        return angle_loss, throttle_loss
+        angle_loss = self.mse1(x[:, 0], y[:, 0])
+        throttle_loss = self.mse2(x[:, 1], y[:, 1])
+        loss = angle_weight * angle_loss + throttle_loss * (1 - angle_weight)
+        return loss, angle_loss, throttle_loss
 
     def predict(self, x):
-        x = torch.FloatTensor(x).permute(0, 3, 1, 2)
+        x = torch.FloatTensor(x).permute(0, 3, 1, 2) / 255
         y = self(x)
         return y
 

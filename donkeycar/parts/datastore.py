@@ -700,7 +700,7 @@ class TorchTubGroup(Tub):
     
     def get_train_val_gen(self, X_keys, Y_keys, batch_size=128, train_frac=.8,
                           train_record_transform=None, val_record_transform=None,
-                          sequential=True):
+                          sequential=False):
         import torch
         if self.df is None:
             self.update_df()
@@ -729,7 +729,7 @@ class Dataset(object):
         import torch
         try:
             img = Image.open((self.data[self.X_keys].iloc[idx, 0]))
-            val = np.array(img, dtype=np.float32)
+            val = np.array(img, dtype=np.float32) / 255
             steering = self.data[self.Y_keys].iloc[idx, 0].astype(np.float32)
             throttle = self.data[self.Y_keys].iloc[idx, 1].astype(np.float32)
         except IndexError as e:
